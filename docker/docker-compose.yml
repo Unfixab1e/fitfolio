@@ -8,18 +8,38 @@ services:
     volumes:
       - ../fitfolio:/usr/src/app
     ports:
-      - "8000:8000"
+       - "$FITFOLIO_PORT:8000"
     depends_on:
-      - db
+      - mariadb
       - redis
-  db:
-    image: postgres
+  mariadb:
+    container_name: fitfolio_db
+    image: mariadb:latest
+    volumes:
+      - $DOCKERDIR/appdata/fitfolio_db/config:/config
+      - $DOCKERDIR/appdata/fitfolio_db/mysql:/var/lib/mysql
     environment:
-      POSTGRES_DB: fitfolio
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
+      TZ: $TZ
+      PUID: $PUID
+      PGID: $PGID
+      MARIADB_DATABASE: $MARIADB_DATABASE
+      MARIADB_PASSWORD: $MARIADB_PASSWORD
+      MARIADB_ROOT_PASSWORD: $MARIADB_ROOT_PASSWORD
+      MARIADB_USER: $MARIADB_USER
   redis:
-    image: redis
+    image: redis:latest
+    container_name: fitfolio_redis
+    ports:
+       - "$REDIS_PORT:6379"
+    volumes:
+      - $DOCKERDIR/appdata/fitfolio_redis/data:/var/lib/redis
+      - $DOCKERDIR/appdata/fitfolio_redis/redis.conf:/usr/local/etc/redis/redis.conf
+      - /etc/localtime:/etc/localtime:ro  
+    environment:
+      TZ: $TZ
+      PUID: $PUID
+      PGID: $PGID
+      REDIS_PASSWORD: $REDIS_PASSWORD
   celery:
     build:
       context: ../ 
