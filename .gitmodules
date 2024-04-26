@@ -1,0 +1,3 @@
+[submodule "HCGateway"]
+	path = HCGateway
+	url = https://github.com/Unfixab1e/HCGateway
