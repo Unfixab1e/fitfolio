@@ -14,8 +14,19 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from fitfolio import views
+
+router = DefaultRouter()
+router.register(r'users', views.UserViewSet)
+router.register(r'activity', views.ActivityDataViewSet, basename='activity')
+router.register(r'weight', views.WeightDataViewSet, basename='weight')
+router.register(r'sleep', views.SleepDataViewSet, basename='sleep')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('', views.dashboard, name='dashboard'),
+    path('api/', include(router.urls)),
+    path('api-auth/', include('rest_framework.urls')),
 ]
