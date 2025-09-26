@@ -20,6 +20,20 @@ class User(AbstractUser):
         related_query_name="user_%(app_label)s_%(class)s",
     )
 
+class UserProfile(models.Model):
+    """Extended user profile for health data integration"""
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    hc_gateway_user_id = models.CharField(max_length=100, blank=True, null=True, 
+                                         help_text="HCGateway user ID for health data sync")
+    sync_enabled = models.BooleanField(default=False, 
+                                      help_text="Enable automatic health data sync")
+    last_sync = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.username} Profile"
+
 class ActivityData(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     date = models.DateField()

@@ -8,43 +8,85 @@ services:
     volumes:
       - ../fitfolio:/usr/src/app
     ports:
-       - "$FITFOLIO_PORT:8000"
+       - "${FITFOLIO_PORT:-8000}:8000"
     depends_on:
-      - mariadb
+      - db
       - redis
-  mariadb:
+    environment:
+      - DATABASE_URL=sqlite:///db.sqlite3
+      - HCGATEWAY_API_URL=${HCGATEWAY_API_URL:-https://api.hcgateway.shuchir.dev}
+
+  db:
+    image: postgres:13
     container_name: fitfolio_db
-    image: mariadb:latest
     volumes:
-      - $DOCKERDIR/appdata/fitfolio_db/config:/config
-      - $DOCKERDIR/appdata/fitfolio_db/mysql:/var/lib/mysql
+      - db_data:/var/lib/postgresql/data
     environment:
-      TZ: $TZ
-      PUID: $PUID
-      PGID: $PGID
-      MARIADB_DATABASE: $MARIADB_DATABASE
-      MARIADB_PASSWORD: $MARIADB_PASSWORD
-      MARIADB_ROOT_PASSWORD: $MARIADB_ROOT_PASSWORD
-      MARIADB_USER: $MARIADB_USER
-  redis:
-    image: redis:latest
-    container_name: fitfolio_redis
+      POSTGRES_DB: ${POSTGRES_DB:-fitfolio}
+      POSTGRES_USER: ${POSTGRES_USER:-fitfolio}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fitfolio123}
     ports:
-       - "$REDIS_PORT:6379"
+      - "${POSTGRES_PORT:-5432}:5432"
+
+  redis:
+    image: redis:alpine
+    container_name: fitfolio_redis
     volumes:
-      - $DOCKERDIR/appdata/fitfolio_redis/data:/var/lib/redis
-      - $DOCKERDIR/appdata/fitfolio_redis/redis.conf:/usr/local/etc/redis/redis.conf
-      - /etc/localtime:/etc/localtime:ro  
-    environment:
-      TZ: $TZ
-      PUID: $PUID
-      PGID: $PGID
-      REDIS_PASSWORD: $REDIS_PASSWORD
+      - redis_data:/data
+    ports:
+       - "${REDIS_PORT:-6379}:6379"
+
   celery:
     build:
       context: ../ 
       dockerfile: docker/Dockerfile
     command: celery -A fitfolio worker -l info
+    volumes:
+      - ../fitfolio:/usr/src/app
     depends_on:
       - web
       - redis
+    environment:
+      - DATABASE_URL=sqlite:///db.sqlite3
+      - HCGATEWAY_API_URL=${HCGATEWAY_API_URL:-https://api.hcgateway.shuchir.dev}
+
+  celery-beat:
+    build:
+      context: ../ 
+      dockerfile: docker/Dockerfile
+    command: celery -A fitfolio beat -l info
+    volumes:
+      - ../fitfolio:/usr/src/app
+    depends_on:
+      - web
+      - redis
+    environment:
+      - DATABASE_URL=sqlite:///db.sqlite3
+      - HCGATEWAY_API_URL=${HCGATEWAY_API_URL:-https://api.hcgateway.shunchir.dev}
+
+  health-sync:
+    build:
+      context: ../ 
+      dockerfile: docker/Dockerfile
+    command: >
+      sh -c "
+        while true; do
+          echo 'Running health data sync...'
+          python manage.py sync_health_data --all
+          echo 'Health sync completed. Sleeping for 2 hours...'
+          sleep 7200
+        done
+      "
+    volumes:
+      - ../fitfolio:/usr/src/app
+    depends_on:
+      - web
+      - db
+    environment:
+      - DATABASE_URL=sqlite:///db.sqlite3
+      - HCGATEWAY_API_URL=${HCGATEWAY_API_URL:-https://api.hcgateway.shuchir.dev}
+    restart: unless-stopped
+
+volumes:
+  db_data:
+  redis_data:
