@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FitFolio - Your Personal Fitness Tracker</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            margin-bottom: 1.5rem;
+        }
+        .card-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px 15px 0 0 !important;
+        }
+        .metric-card {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+        .metric-icon {
+            font-size: 2rem;
+            opacity: 0.8;
+        }
+        .nav-tabs .nav-link {
+            border-radius: 10px 10px 0 0;
+            color: #667eea;
+        }
+        .nav-tabs .nav-link.active {
+            background-color: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+        }
+        .health-data-form {
+            max-width: 400px;
+        }
+        @media (max-width: 768px) {
+            .container-fluid {
+                padding: 0.5rem;
+            }
+            .card {
+                margin-bottom: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-dark" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#"><i class="fas fa-heartbeat me-2"></i>FitFolio</a>
+            {% if user.is_authenticated %}
+                <span class="text-white">Welcome, {{ user.username }}!</span>
+            {% else %}
+                <a href="/admin/login" class="btn btn-outline-light btn-sm">Login</a>
+            {% endif %}
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        {% if user.is_authenticated %}
+            <!-- Dashboard Content -->
+            <div class="row mb-4">
+                <div class="col-md-4 mb-3">
+                    <div class="card metric-card">
+                        <div class="card-body d-flex align-items-center">
+                            <i class="fas fa-walking metric-icon me-3"></i>
+                            <div>
+                                <h5 class="card-title mb-0">Steps Today</h5>
+                                <h3 class="mb-0" id="steps-today">--</h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <div class="card metric-card">
+                        <div class="card-body d-flex align-items-center">
+                            <i class="fas fa-weight metric-icon me-3"></i>
+                            <div>
+                                <h5 class="card-title mb-0">Current Weight</h5>
+                                <h3 class="mb-0" id="current-weight">--</h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <div class="card metric-card">
+                        <div class="card-body d-flex align-items-center">
+                            <i class="fas fa-bed metric-icon me-3"></i>
+                            <div>
+                                <h5 class="card-title mb-0">Last Night</h5>
+                                <h3 class="mb-0" id="last-sleep">--</h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabs for different data types -->
+            <ul class="nav nav-tabs" id="dataTab" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="activity-tab" data-bs-toggle="tab" data-bs-target="#activity" type="button">
+                        <i class="fas fa-walking me-2"></i>Activity
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="weight-tab" data-bs-toggle="tab" data-bs-target="#weight" type="button">
+                        <i class="fas fa-weight me-2"></i>Weight
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="sleep-tab" data-bs-toggle="tab" data-bs-target="#sleep" type="button">
+                        <i class="fas fa-bed me-2"></i>Sleep
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content" id="dataTabContent">
+                <!-- Activity Tab -->
+                <div class="tab-pane fade show active" id="activity" role="tabpanel">
+                    <div class="row">
+                        <div class="col-lg-8">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Activity Chart</h5>
+                                </div>
+                                <div class="card-body">
+                                    <canvas id="activityChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0"><i class="fas fa-plus me-2"></i>Add Activity Data</h5>
+                                </div>
+                                <div class="card-body">
+                                    <form id="activityForm" class="health-data-form">
+                                        <div class="mb-3">
+                                            <label class="form-label">Date</label>
+                                            <input type="date" class="form-control" id="activityDate" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Steps</label>
+                                            <input type="number" class="form-control" id="steps" min="0" placeholder="e.g., 8500">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Distance (km)</label>
+                                            <input type="number" class="form-control" id="distance" min="0" step="0.1" placeholder="e.g., 5.2">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Calories Burned</label>
+                                            <input type="number" class="form-control" id="calories" min="0" placeholder="e.g., 350">
+                                        </div>
+                                        <button type="submit" class="btn btn-primary w-100">
+                                            <i class="fas fa-save me-2"></i>Save Activity
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Weight Tab -->
+                <div class="tab-pane fade" id="weight" role="tabpanel">
+                    <div class="row">
+                        <div class="col-lg-8">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Weight Chart</h5>
+                                </div>
+                                <div class="card-body">
+                                    <canvas id="weightChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0"><i class="fas fa-plus me-2"></i>Add Weight Data</h5>
+                                </div>
+                                <div class="card-body">
+                                    <form id="weightForm" class="health-data-form">
+                                        <div class="mb-3">
+                                            <label class="form-label">Date</label>
+                                            <input type="date" class="form-control" id="weightDate" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Weight (kg)</label>
+                                            <input type="number" class="form-control" id="weight" min="0" step="0.1" placeholder="e.g., 75.5" required>
+                                        </div>
+                                        <button type="submit" class="btn btn-primary w-100">
+                                            <i class="fas fa-save me-2"></i>Save Weight
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sleep Tab -->
+                <div class="tab-pane fade" id="sleep" role="tabpanel">
+                    <div class="row">
+                        <div class="col-lg-8">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Sleep Chart</h5>
+                                </div>
+                                <div class="card-body">
+                                    <canvas id="sleepChart"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0"><i class="fas fa-plus me-2"></i>Add Sleep Data</h5>
+                                </div>
+                                <div class="card-body">
+                                    <form id="sleepForm" class="health-data-form">
+                                        <div class="mb-3">
+                                            <label class="form-label">Date</label>
+                                            <input type="date" class="form-control" id="sleepDate" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Total Sleep (hours)</label>
+                                            <input type="number" class="form-control" id="sleepHours" min="0" max="24" step="0.1" placeholder="e.g., 8.5" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Sleep Quality (1-10)</label>
+                                            <input type="number" class="form-control" id="sleepQuality" min="1" max="10" placeholder="e.g., 8">
+                                        </div>
+                                        <button type="submit" class="btn btn-primary w-100">
+                                            <i class="fas fa-save me-2"></i>Save Sleep Data
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            <!-- Login prompt -->
+            <div class="row justify-content-center">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header text-center">
+                            <h4><i class="fas fa-heartbeat me-2"></i>Welcome to FitFolio</h4>
+                        </div>
+                        <div class="card-body text-center">
+                            <p class="lead">Your personal self-hosted fitness tracking app</p>
+                            <p>Track your steps, weight, and sleep data all in one place!</p>
+                            <a href="/admin/login" class="btn btn-primary btn-lg">
+                                <i class="fas fa-sign-in-alt me-2"></i>Get Started
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Set today's date as default for all date inputs
+        document.addEventListener('DOMContentLoaded', function() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('activityDate').value = today;
+            document.getElementById('weightDate').value = today;
+            document.getElementById('sleepDate').value = today;
+
+            // Load dashboard data if user is authenticated
+            {% if user.is_authenticated %}
+                loadDashboardData();
+                initCharts();
+                setupForms();
+            {% endif %}
+        });
+
+        {% if user.is_authenticated %}
+        // API helper function
+        async function apiCall(url, options = {}) {
+            const defaultOptions = {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                credentials: 'same-origin'
+            };
+            return fetch(url, { ...defaultOptions, ...options });
+        }
+
+        // Get CSRF token
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        // Load dashboard data
+        async function loadDashboardData() {
+            try {
+                // Load recent activity data
+                const activityResponse = await apiCall('/api/activity/recent/');
+                const activityData = await activityResponse.json();
+                
+                if (activityData.length > 0) {
+                    const today = new Date().toISOString().split('T')[0];
+                    const todayData = activityData.find(d => d.date === today);
+                    document.getElementById('steps-today').textContent = todayData ? todayData.steps : '--';
+                }
+
+                // Load recent weight data
+                const weightResponse = await apiCall('/api/weight/recent/');
+                const weightData = await weightResponse.json();
+                
+                if (weightData.length > 0) {
+                    document.getElementById('current-weight').textContent = `${weightData[0].weight} kg`;
+                }
+
+                // Load recent sleep data
+                const sleepResponse = await apiCall('/api/sleep/recent/');
+                const sleepData = await sleepResponse.json();
+                
+                if (sleepData.length > 0) {
+                    document.getElementById('last-sleep').textContent = sleepData[0].sleep_duration_formatted;
+                }
+            } catch (error) {
+                console.error('Error loading dashboard data:', error);
+            }
+        }
+
+        // Initialize charts
+        let activityChart, weightChart, sleepChart;
+
+        function initCharts() {
+            // Activity Chart
+            const activityCtx = document.getElementById('activityChart').getContext('2d');
+            activityChart = new Chart(activityCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Steps',
+                        data: [],
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Steps Over Time'
+                        }
+                    }
+                }
+            });
+
+            // Weight Chart
+            const weightCtx = document.getElementById('weightChart').getContext('2d');
+            weightChart = new Chart(weightCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Weight (kg)',
+                        data: [],
+                        borderColor: '#f5576c',
+                        backgroundColor: 'rgba(245, 87, 108, 0.1)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Weight Over Time'
+                        }
+                    }
+                }
+            });
+
+            // Sleep Chart
+            const sleepCtx = document.getElementById('sleepChart').getContext('2d');
+            sleepChart = new Chart(sleepCtx, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Sleep Hours',
+                        data: [],
+                        backgroundColor: '#764ba2'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Sleep Duration Over Time'
+                        }
+                    }
+                }
+            });
+
+            loadChartData();
+        }
+
+        async function loadChartData() {
+            try {
+                // Load activity data
+                const activityResponse = await apiCall('/api/activity/recent/');
+                const activityData = await activityResponse.json();
+                
+                activityChart.data.labels = activityData.map(d => d.date);
+                activityChart.data.datasets[0].data = activityData.map(d => d.steps);
+                activityChart.update();
+
+                // Load weight data
+                const weightResponse = await apiCall('/api/weight/recent/');
+                const weightData = await weightResponse.json();
+                
+                weightChart.data.labels = weightData.map(d => d.date);
+                weightChart.data.datasets[0].data = weightData.map(d => d.weight);
+                weightChart.update();
+
+                // Load sleep data
+                const sleepResponse = await apiCall('/api/sleep/recent/');
+                const sleepData = await sleepResponse.json();
+                
+                sleepChart.data.labels = sleepData.map(d => d.date);
+                sleepChart.data.datasets[0].data = sleepData.map(d => d.total_sleep_minutes / 60);
+                sleepChart.update();
+            } catch (error) {
+                console.error('Error loading chart data:', error);
+            }
+        }
+
+        // Setup forms
+        function setupForms() {
+            // Activity form
+            document.getElementById('activityForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const data = {
+                    date: document.getElementById('activityDate').value,
+                    steps: parseInt(document.getElementById('steps').value) || 0,
+                    distance: parseFloat(document.getElementById('distance').value) || 0,
+                    calories_burned: parseInt(document.getElementById('calories').value) || 0
+                };
+
+                try {
+                    const response = await apiCall('/api/activity/', {
+                        method: 'POST',
+                        body: JSON.stringify(data)
+                    });
+
+                    if (response.ok) {
+                        alert('Activity data saved successfully!');
+                        loadDashboardData();
+                        loadChartData();
+                        e.target.reset();
+                        document.getElementById('activityDate').value = new Date().toISOString().split('T')[0];
+                    } else {
+                        alert('Error saving activity data');
+                    }
+                } catch (error) {
+                    alert('Error saving activity data: ' + error.message);
+                }
+            });
+
+            // Weight form
+            document.getElementById('weightForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const data = {
+                    date: document.getElementById('weightDate').value,
+                    weight: parseFloat(document.getElementById('weight').value)
+                };
+
+                try {
+                    const response = await apiCall('/api/weight/', {
+                        method: 'POST',
+                        body: JSON.stringify(data)
+                    });
+
+                    if (response.ok) {
+                        alert('Weight data saved successfully!');
+                        loadDashboardData();
+                        loadChartData();
+                        e.target.reset();
+                        document.getElementById('weightDate').value = new Date().toISOString().split('T')[0];
+                    } else {
+                        alert('Error saving weight data');
+                    }
+                } catch (error) {
+                    alert('Error saving weight data: ' + error.message);
+                }
+            });
+
+            // Sleep form
+            document.getElementById('sleepForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const sleepHours = parseFloat(document.getElementById('sleepHours').value);
+                const sleepQuality = parseInt(document.getElementById('sleepQuality').value) || null;
+                
+                const data = {
+                    date: document.getElementById('sleepDate').value,
+                    total_sleep_minutes: Math.round(sleepHours * 60),
+                    sleep_quality_score: sleepQuality ? sleepQuality * 10 : null // Convert 1-10 to 1-100
+                };
+
+                try {
+                    const response = await apiCall('/api/sleep/', {
+                        method: 'POST',
+                        body: JSON.stringify(data)
+                    });
+
+                    if (response.ok) {
+                        alert('Sleep data saved successfully!');
+                        loadDashboardData();
+                        loadChartData();
+                        e.target.reset();
+                        document.getElementById('sleepDate').value = new Date().toISOString().split('T')[0];
+                    } else {
+                        alert('Error saving sleep data');
+                    }
+                } catch (error) {
+                    alert('Error saving sleep data: ' + error.message);
+                }
+            });
+        }
+        {% endif %}
+    </script>
+</body>
+</html>
